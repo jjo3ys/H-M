@@ -129,13 +129,54 @@ def get_weekly_list(day_of_the_end):
 
     return result_dict
 
-a = get_weekly_list('2020-09-22')
-print(a)
 
 def get_score(val_list, predict_list):
     answer = 0
     for val in val_list:
         if val in predict_list:
             answer += 1
-    val_len = len(val_list):
+    val_len = len(val_list)
+
+def cust_blend(dt, W = [1,1,1]):
+    #Global ensemble weights
+    #W = [1.15,0.95,0.85]
     
+    #Create a list of all model predictions
+    REC = []
+    REC.append(dt['prediction0'].split())
+    REC.append(dt['prediction1'].split())
+    REC.append(dt['prediction2'].split())
+    
+    #Create a dictionary of items recommended. 
+    #Assign a weight according the order of appearance and multiply by global weights
+    res = {}
+    for M in range(len(REC)):
+        for n, v in enumerate(REC[M]):
+            if v in res:
+                res[v] += (W[M]/(n+1))
+            else:
+                res[v] = (W[M]/(n+1))
+    
+    # Sort dictionary by item weights
+    res = list(dict(sorted(res.items(), key=lambda item: -item[1])).keys())
+    
+    # Return the top 12 itens only
+    return ' '.join(res[:12])
+
+
+sub0 = pd.read_csv('226.csv').sort_values('customer_id').reset_index(drop=True)
+sub1 = pd.read_csv('225.csv').sort_values('customer_id').reset_index(drop=True)
+sub2 = pd.read_csv('217.csv').sort_values('customer_id').reset_index(drop=True)
+
+sub0.columns = ['customer_id', 'prediction0']
+sub0['prediction1'] = sub1['prediction']
+sub0['prediction2'] = sub2['prediction']
+del sub1, sub2
+
+sub0['prediction'] = sub0.apply(cust_blend, W = [1.05,1.00,0.95], axis=1)#1.05, 1.00, 0.95 = 0.0230
+sub0.head()
+
+del sub0['prediction0']
+del sub0['prediction1']
+del sub0['prediction2']
+sub0.to_csv('submission-blend-1.csv', index=False)

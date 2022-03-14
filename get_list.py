@@ -185,16 +185,70 @@ def above_30():
                 for c in eval(d[1]):
                     wr.writerow([d[0], c[0], c[1]])
 # above_30()
-with open("23to26.csv", 'r', encoding='utf-8') as f:
-    valid_list = []
-    valid_count = -1
-    while True:
-        article = f.readline()
-        if not article: break
-        else:
-            article = article.split(',')[1]
-            if article not in valid_list:
-                valid_list.append(article)
-                valid_count += 1
+# with open("23to26.csv", 'r', encoding='utf-8') as f:
+#     valid_list = []
+#     valid_count = -1
+#     while True:
+#         article = f.readline()
+#         if not article: break
+#         else:
+#             article = article.split(',')[1]
+#             if article not in valid_list:
+#                 valid_list.append(article)
+#                 valid_count += 1
 
-print(valid_count)
+def group_by_age():
+    import os
+    df = pd.read_csv("customers.csv")
+
+    for i in range(1, 10):  
+        if not os.path.exists('{0}대'.format(i*10)):
+            os.mkdir('{0}대'.format(i*10))
+        
+        age_df = df.loc[(df['age'] >= i*10) & (df['age'] < (i+1)*10), 'customer_id']
+        age_df.to_csv('{0}대\\{0}대_그룹.csv'.format(i*10), index=None)
+
+def after_7_1_transacionts():
+    df = pd.read_csv("transactions_train.csv")
+    df.drop(['price', 'sales_channel_id'], axis=1)
+    df['t_dat'] = pd.to_datetime(df['t_dat'])
+    df = df.loc[df['t_dat'] >=pd.to_datetime('2020-07-01')]
+    df = df.to_numpy()
+    transaction_dict = {}
+    for d in df:
+        customer = d[1]
+        article = d[2]
+
+        if customer not in transaction_dict:
+            transaction_dict[customer] = []
+        
+        transaction_dict[customer].append(article)
+    with open("2020-07-01_transactions.csv", 'w', encoding='utf-8', newline='') as f:
+        wr = csv.writer(f)
+        wr.writerow(['customer_id', 'articles_id'])
+        for transaction in transaction_dict.items():
+            for t in transaction[1]:
+                wr.writerow([transaction[0], t])
+
+def age_transactions():
+    df = pd.read_csv("2020-07-01_transactions.csv")
+    for i in range(1, 10):
+        print(i)
+        group_df = pd.read_csv("{0}대\\{0}대_그룹.csv".format(i*10))
+        group_transaction = pd.merge(df, group_df, how='right', on='customer_id')
+        group_transaction.to_csv("{0}대\\{0}대_transactions.csv".format(i*10), index=None)
+
+from sklearn.metrics.pairwise import cosine_similarity
+df = pd.read_csv("10대\\10대_transactions.csv")
+
+df.drop(df[df['articles_id'].isnull()].index, inplace=True)
+df['articles_id'] = df['articles_id'].astype(int)
+
+df['count'] = 1
+df = df.pivot_table('count', index='customer_id', columns='articles_id')
+
+df = df.fillna(0)
+
+df = cosine_similarity(df)
+df = pd.DataFrame(df)
+df.to_csv("10대\\10대matrix.csv")
